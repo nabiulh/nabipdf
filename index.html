@@ -1,0 +1,307 @@
+<!DOCTYPE html>
+<html lang="bn">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+    
+    <!-- PWA Settings -->
+    <title>Zen Word</title>
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="theme-color" content="#2563eb">
+    <meta name="mobile-web-app-capable" content="yes">
+    <link rel="manifest" href="data:application/json;base64,ewogICAgIm5hbWUiOiAiWmVuIFdvcmQiLAogICAgInNob3J0X25hbWUiOiAiWmVuV29yZCIsCiAgICAic3RhcnRfdXJsIjogIi4iLAogICAgImRpc3BsYXkiOiAic3RhbmRhbG9uZSIsCiAgICAiYmFja2dyb3VuZF9jb2xvciI6ICIjZmZmZmZmIiwKICAgICJ0aGVtZV9jb2xvciI6ICIjMjU2M2ViIiwKICAgICJpY29ucyI6IFt7CiAgICAgICAgInNyYyI6ICJwcm9maWxlLnBuZyIsCiAgICAgICAgInNpemVzIjogIjE5MngxOTIiLAogICAgICAgICJ0eXBlIjogImltYWdlL3BuZyIKICAgIH1dCn0=">
+
+    <!-- Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    
+    <!-- Fonts -->
+    <link href="https://fonts.maateen.me/kalpurush/font.css" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Hind+Siliguri:wght@300;400;500;600&family=Noto+Serif+Bengali:wght@400;600;700&display=swap" rel="stylesheet">
+    
+    <!-- Icons -->
+    <script src="https://unpkg.com/lucide@latest"></script>
+    
+    <!-- PDF Library -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js"></script>
+
+    <style>
+        :root {
+            --bg-body: #f3f4f6;
+            --bg-panel: #ffffff;
+            --text-main: #1f2937;
+            --text-muted: #6b7280;
+            --accent: #2563eb;
+            --border: #e5e7eb;
+            --paper-width: 210mm;
+            --paper-height: 297mm;
+            --font-size: 14px;
+        }
+
+        body {
+            background-color: var(--bg-body);
+            color: var(--text-main);
+            font-family: 'Kalpurush', 'Hind Siliguri', sans-serif;
+            overflow: hidden;
+            transition: background-color 0.3s ease;
+            padding-top: env(safe-area-inset-top);
+            overscroll-behavior-y: none; 
+        }
+
+        /* --- VIEWS --- */
+        .view-section { display: none; width: 100vw; height: 100dvh; flex-direction: column; animation: fadeIn 0.3s ease; }
+        .view-section.active { display: flex; }
+        @keyframes fadeIn { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
+
+        /* --- HOME SCREEN --- */
+        .home-header { padding: 15px 20px; background: var(--bg-panel); display: flex; justify-content: space-between; align-items: center; box-shadow: 0 1px 3px rgba(0,0,0,0.05); min-height: 60px; }
+        .recent-list { flex: 1; padding: 20px; overflow-y: auto; -webkit-overflow-scrolling: touch; }
+        .doc-item { display: flex; align-items: center; padding: 15px; background: var(--bg-panel); margin-bottom: 10px; border-radius: 8px; border: 1px solid transparent; cursor: pointer; transition: 0.2s; }
+        .doc-item:hover { border-color: var(--accent); box-shadow: 0 2px 5px rgba(0,0,0,0.05); }
+        .doc-icon { width: 40px; height: 40px; background: #eff6ff; color: var(--accent); display: flex; align-items: center; justify-content: center; border-radius: 8px; margin-right: 15px; }
+        .fab-btn { position: fixed; bottom: 30px; right: 30px; width: 60px; height: 60px; background: var(--accent); color: white; border-radius: 50%; display: flex; align-items: center; justify-content: center; box-shadow: 0 4px 15px rgba(37,99,235,0.4); cursor: pointer; transition: transform 0.2s; z-index: 50; }
+        .fab-btn:hover { transform: scale(1.1); }
+
+        /* --- EDITOR SCREEN --- */
+        .editor-top-bar { height: 60px; min-height: 60px; background: var(--accent); color: white; display: flex; align-items: center; justify-content: space-between; padding: 0 15px; box-shadow: 0 2px 10px rgba(0,0,0,0.1); z-index: 20; }
+        .editor-toolbar { background: var(--bg-panel); border-bottom: 1px solid var(--border); padding: 10px; display: flex; gap: 15px; overflow-x: auto; white-space: nowrap; scrollbar-width: none; }
+        .editor-toolbar::-webkit-scrollbar { display: none; }
+        .tool-icon { color: var(--text-main); padding: 8px 12px; border-radius: 4px; cursor: pointer; user-select: none; }
+        .tool-icon:active { background: #e5e7eb; transform: scale(0.95); }
+        
+        #editor { flex: 1; width: 100%; max-width: 800px; margin: 0 auto; padding: 40px 20px; outline: none; overflow-y: auto; font-size: var(--font-size); line-height: 1.5; color: var(--text-main); white-space: normal; font-family: 'Kalpurush', sans-serif; }
+
+        /* --- PREVIEW SCREEN --- */
+        .preview-container { flex: 1; background: #52565e; overflow-y: auto; padding: 20px; display: flex; justify-content: center; }
+        .preview-header { height: 60px; min-height: 60px; background: #1f2937; color: white; display: flex; align-items: center; justify-content: space-between; padding: 0 20px; }
+
+        .a4-page {
+            width: var(--paper-width);
+            min-height: var(--paper-height);
+            background: #fff;
+            color: #000;
+            padding: 5mm; 
+            box-shadow: 0 10px 30px rgba(0,0,0,0.5);
+            margin-bottom: 20px;
+            position: relative; 
+        }
+
+        /* --- STYLISH BORDER --- */
+        .stylish-border-frame {
+            border: 2px solid #1f2937; /* Outer thick border */
+            height: 100%;
+            min-height: calc(297mm - 10mm);
+            padding: 15mm; 
+            position: relative;
+            /* Inner thin border using box-shadow */
+            box-shadow: inset 0 0 0 2px #fff, inset 0 0 0 4px #1f2937; 
+        }
+
+        /* Watermark (Preview) */
+        .watermark-container {
+            position: absolute; top: 0; left: 0; right: 0; bottom: 0;
+            display: flex; align-items: center; justify-content: center;
+            z-index: 0; pointer-events: none;
+        }
+        .watermark-img {
+            width: 100mm;
+            opacity: 0.2; /* Opacity 20% in preview */
+        }
+
+        .doc-content { font-family: 'Kalpurush', serif; font-size: 14px; line-height: 1.4; text-align: justify; color: #000; position: relative; z-index: 10; }
+        .doc-content p { margin-bottom: 8px; }
+        /* Uniform Font Size 14px */
+        .doc-content h1 { margin-bottom: 10px; font-size: 14px; font-family: 'Kalpurush', serif; font-weight: 700; }
+        .doc-content h2 { margin-top: 12px; margin-bottom: 5px; font-size: 14px; font-family: 'Kalpurush', serif; font-weight: 700; }
+
+        /* --- SETTINGS --- */
+        .drawer-right { position: fixed; top: 0; right: -320px; width: 300px; height: 100%; background: var(--bg-panel); border-left: 1px solid var(--border); z-index: 100; transition: right 0.3s; padding: 20px; box-shadow: -5px 0 20px rgba(0,0,0,0.2); overflow-y: auto; padding-top: calc(20px + env(safe-area-inset-top)); }
+        .drawer-right.open { right: 0; }
+        .drawer-overlay { position: fixed; inset: 0; background: rgba(0,0,0,0.5); z-index: 90; display: none; }
+        .drawer-overlay.show { display: block; }
+        .theme-grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 10px; margin-top: 10px; }
+        .theme-btn { height: 40px; border-radius: 6px; cursor: pointer; display: flex; align-items: center; justify-content: center; font-size: 11px; color: white; font-family: 'Hind Siliguri', sans-serif; }
+        .toast { position: fixed; bottom: 30px; left: 50%; transform: translateX(-50%) translateY(100px); background: #333; color: white; padding: 10px 20px; border-radius: 20px; box-shadow: 0 5px 15px rgba(0,0,0,0.3); transition: transform 0.3s; z-index: 200; }
+        .toast.show { transform: translateX(-50%) translateY(0); }
+        ::-webkit-scrollbar { width: 5px; } ::-webkit-scrollbar-track { background: transparent; } ::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 10px; }
+    </style>
+</head>
+<body>
+    
+    <img id="watermark-source" src="watermark.png" style="display: none;" crossorigin="anonymous">
+
+    <!-- HOME -->
+    <div id="view-home" class="view-section active">
+        <div class="home-header">
+            <div class="flex items-center">
+                <div class="w-8 h-8 bg-blue-600 text-white rounded flex items-center justify-center font-bold mr-3">W</div>
+                <h1 class="text-xl font-bold text-gray-800">Word</h1>
+            </div>
+            <div class="w-8 h-8 rounded-full bg-gray-200 overflow-hidden border border-gray-300">
+                <img src="profile.png" alt="Profile" class="w-full h-full object-cover" onerror="this.src='https://api.dicebear.com/7.x/avataaars/svg?seed=Felix'">
+            </div>
+        </div>
+        <div class="recent-list">
+            <h2 class="text-sm font-semibold text-gray-500 mb-4 ml-1">Recent</h2>
+            <div class="doc-item" onclick="openEditor()">
+                <div class="doc-icon"><i data-lucide="file-text"></i></div>
+                <div><h3 class="font-semibold text-gray-800">নতুন ডকুমেন্ট.pdf</h3><p class="text-xs text-gray-500">Just now</p></div>
+            </div>
+        </div>
+        <div class="fab-btn" onclick="openEditor()" title="নতুন ডকুমেন্ট"><i data-lucide="plus" class="w-8 h-8"></i></div>
+    </div>
+
+    <!-- EDITOR -->
+    <div id="view-editor" class="view-section" style="background: var(--bg-panel);">
+        <div class="editor-top-bar">
+            <div class="flex items-center">
+                <button onclick="goHome()" class="mr-4"><i data-lucide="arrow-left"></i></button>
+                <span class="font-semibold">ডকুমেন্ট ১</span>
+            </div>
+            <div class="flex items-center gap-4">
+                <button onclick="openPreview()" title="প্রিভিউ দেখুন"><i data-lucide="eye"></i></button>
+                <button onclick="toggleDrawer()" title="মেনু"><i data-lucide="menu"></i></button>
+            </div>
+        </div>
+        <div class="editor-toolbar">
+            <button class="tool-icon font-bold" onmousedown="event.preventDefault(); formatDoc('bold')">B</button>
+            <button class="tool-icon italic" onmousedown="event.preventDefault(); formatDoc('italic')">I</button>
+            <button class="tool-icon underline" onmousedown="event.preventDefault(); formatDoc('underline')">U</button>
+            <div class="w-[1px] h-6 bg-gray-300 mx-1"></div>
+            <button class="tool-icon" onmousedown="event.preventDefault(); formatDoc('formatBlock', 'H1')">H1</button>
+            <button class="tool-icon" onmousedown="event.preventDefault(); formatDoc('formatBlock', 'H2')">H2</button>
+            <button class="tool-icon" onmousedown="event.preventDefault(); formatDoc('insertUnorderedList')">• List</button>
+            <button class="tool-icon" onmousedown="event.preventDefault(); clearText()"><i data-lucide="trash-2" class="w-4 h-4"></i></button>
+        </div>
+        <div id="editor" contenteditable="true" placeholder="এখানে লিখুন..."></div>
+    </div>
+
+    <!-- PREVIEW -->
+    <div id="view-preview" class="view-section">
+        <div class="preview-header">
+            <button onclick="closePreview()" class="flex items-center gap-2"><i data-lucide="x"></i> <span class="text-sm">বন্ধ করুন</span></button>
+            <span class="font-semibold">প্রিভিউ মোড</span>
+            <button onclick="downloadPDF()" class="bg-blue-600 px-4 py-1.5 rounded text-sm font-medium hover:bg-blue-700 transition">ডাউনলোড PDF</button>
+        </div>
+        <div class="preview-container">
+            <div id="pdf-content" class="a4-page">
+                <div class="stylish-border-frame">
+                    <div class="watermark-container"><img src="watermark.png" class="watermark-img" alt=""></div>
+                    <div id="outputArea" class="doc-content"></div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- SETTINGS -->
+    <div id="drawerOverlay" class="drawer-overlay" onclick="toggleDrawer()"></div>
+    <div id="rightDrawer" class="drawer-right">
+        <h2 class="text-lg font-bold mb-4 flex items-center" style="color: var(--text-main);"><i data-lucide="settings" class="mr-2 w-5 h-5"></i> সেটিংস</h2>
+        <div class="mb-6"><div class="text-sm font-semibold mb-2" style="color: var(--text-muted);">থিম নির্বাচন (১০টি)</div><div class="theme-grid" id="themeContainer"></div></div>
+        <div class="mb-6">
+            <div class="text-sm font-semibold mb-2" style="color: var(--text-muted);">ফন্ট সাইজ</div>
+            <div class="flex items-center gap-3">
+                <button onclick="adjustFont(-1)" class="p-2 bg-gray-200 text-black rounded hover:bg-gray-300">-</button>
+                <span id="fontDisplay" class="text-sm font-mono font-bold" style="color: var(--text-main);">14px</span>
+                <button onclick="adjustFont(1)" class="p-2 bg-gray-200 text-black rounded hover:bg-gray-300">+</button>
+            </div>
+        </div>
+        <div class="mt-8 pt-4 border-t border-gray-300">
+            <h3 class="text-sm font-bold text-gray-700 mb-2">About Developer</h3>
+            <div class="text-xs text-gray-600 space-y-3 font-sans">
+                <p class="font-bold text-base text-blue-600">Nabiul Hasan</p>
+                <div><p class="font-semibold text-gray-800">Academic Qualification:</p><ul class="list-disc ml-4 space-y-0.5"><li>B.A in Arabic</li><li>M.A in Arabic</li><li>B.A in English</li><li>M.A in English</li><li>B.Ed</li></ul></div>
+                <div><p class="font-semibold text-gray-800">Other Qualification:</p><ul class="list-disc ml-4 space-y-0.5"><li>Diploma in Pharmacy</li></ul></div>
+                <div><p class="font-semibold text-gray-800">Islamic Qualification:</p><ul class="list-disc ml-4 space-y-0.5"><li>Hafiz E Quran</li><li>Maulana (Alim)</li></ul></div>
+                <div><p class="font-semibold text-gray-800">Additional Qualification:</p><ol class="list-decimal ml-4 space-y-1"><li>Certificate in Desktop Publishing</li><li>Diploma In Information & Communication Technology</li><li>Certificate in Client Server Technology (CCST)</li><li>Diploma in Financial Accounting System (DFAS)</li><li>Certificate in Web Designing (CWD)</li><li>Diploma in Multimedia, Animation & Video Editing (DMAVE)</li><li>Diploma in TALLY. ERP9</li><li>ADVANCE DIPLOMA IN AUTOCAD</li><li>ADVANCE DIPLOMA IN SOFTWARE APPLICATION</li><li>ADVANCE DIPLOMA IN PRIMARY COMPUTER TEACHERS TRAINING</li></ol></div>
+                <div class="pt-4 text-center opacity-50">Zen Word Mobile v20.0</div>
+            </div>
+        </div>
+    </div>
+
+    <div id="toast" class="toast">মেসেজ</div>
+
+    <script>
+        lucide.createIcons();
+        const editor = document.getElementById('editor'), outputArea = document.getElementById('outputArea'), root = document.documentElement, wmImg = document.getElementById('watermark-source');
+        const defaultText = "";
+        
+        function openEditor() { switchView('view-editor'); if(editor.innerHTML.trim() === "") editor.innerHTML = defaultText; }
+        function goHome() { switchView('view-home'); }
+        function openPreview() { outputArea.innerHTML = editor.innerHTML; switchView('view-preview'); }
+        function closePreview() { switchView('view-editor'); }
+        function switchView(viewId) { document.querySelectorAll('.view-section').forEach(el => el.classList.remove('active')); document.getElementById(viewId).classList.add('active'); }
+        editor.addEventListener('paste', e => setTimeout(() => { const all = editor.querySelectorAll('*'); all.forEach(el => { el.style.backgroundColor = ''; el.style.color = ''; }); }, 0));
+        function formatDoc(cmd, val = null) { document.execCommand(cmd, false, val); editor.focus(); }
+        function clearText() { if(confirm('সব মুছে ফেলতে চান?')) { editor.innerHTML = ""; showToast("ক্লিন স্লেট!"); } }
+
+        function downloadPDF() {
+            showToast("PDF তৈরি হচ্ছে...");
+            
+            // Capture target: Text content only. We draw borders and watermark via JS.
+            const captureTarget = document.getElementById('outputArea');
+
+            const opt = {
+                // Margins for Content (Border 5mm + Padding 15mm = 20mm + buffer)
+                margin: [25, 20, 25, 20], 
+                filename: 'Zen_Word_Doc.pdf',
+                image: { type: 'jpeg', quality: 0.75 }, 
+                html2canvas: { scale: 2, useCORS: true, logging: false },
+                jsPDF: { unit: 'mm', format: 'a4', orientation: 'portrait' },
+                pagebreak: { mode: ['avoid-all', 'css', 'legacy'] }
+            };
+
+            html2pdf().from(captureTarget).set(opt).toPdf().get('pdf').then(function(pdf) {
+                const totalPages = pdf.internal.getNumberOfPages();
+                const pageWidth = pdf.internal.pageSize.getWidth();
+                const pageHeight = pdf.internal.pageSize.getHeight();
+
+                for (let i = 1; i <= totalPages; i++) {
+                    pdf.setPage(i);
+
+                    // --- 1. Watermark (Centered, 20% Opacity, Behind Text) ---
+                    if (wmImg && wmImg.src && wmImg.complete && wmImg.naturalWidth > 0) {
+                        const wmWidth = 100;
+                        const wmHeight = (wmImg.naturalHeight / wmImg.naturalWidth) * wmWidth;
+                        const wmX = (pageWidth - wmWidth) / 2;
+                        const wmY = (pageHeight - wmHeight) / 2;
+                        try { 
+                            if (pdf.constructor.GState) { 
+                                // CHANGE 1 & 2: Opacity 0.2 and Multiply Blend
+                                const gState = new pdf.constructor.GState({ opacity: 0.20, blendMode: 'Multiply' }); 
+                                pdf.setGState(gState); 
+                            } 
+                        } catch (e) {}
+                        pdf.addImage(wmImg, 'PNG', wmX, wmY, wmWidth, wmHeight, 'WM', 'FAST');
+                        try { if (pdf.constructor.GState) { const gStateReset = new pdf.constructor.GState({ opacity: 1.0 }); pdf.setGState(gStateReset); } } catch (e) {}
+                    }
+
+                    // --- 2. Stylish Double Border (Right at Edge) ---
+                    pdf.setDrawColor(31, 41, 55); 
+                    
+                    // Outer Thick Line (5mm from edge)
+                    pdf.setLineWidth(0.8); 
+                    pdf.rect(5, 5, pageWidth - 10, pageHeight - 10);
+
+                    // Inner Thin Line (7mm from edge)
+                    pdf.setLineWidth(0.2);
+                    pdf.rect(7, 7, pageWidth - 14, pageHeight - 14);
+
+                    // --- 3. Page Number ---
+                    pdf.setFontSize(10); pdf.setTextColor(100);
+                    pdf.text(String(i), pageWidth / 2, 292, { align: 'center' });
+                }
+            }).save().then(() => showToast("ডাউনলোড সম্পন্ন!"));
+        }
+
+        function toggleDrawer() { document.getElementById('rightDrawer').classList.toggle('open'); document.getElementById('drawerOverlay').classList.toggle('show'); }
+        let currentFontSize = 14;
+        function adjustFont(change) { currentFontSize += change; if(currentFontSize<10)currentFontSize=10; if(currentFontSize>32)currentFontSize=32; root.style.setProperty('--font-size', currentFontSize + 'px'); document.getElementById('fontDisplay').innerText = currentFontSize + 'px'; }
+
+        const themes = [ { name: 'Word Blue', bg: '#f3f4f6', panel: '#ffffff', text: '#1f2937', accent: '#2563eb', isLight: true }, { name: 'Dark Mode', bg: '#111827', panel: '#1f2937', text: '#e5e7eb', accent: '#3b82f6', isLight: false }, { name: 'Midnight', bg: '#0f172a', panel: '#1e293b', text: '#cbd5e1', accent: '#6366f1', isLight: false }, { name: 'Forest', bg: '#052e16', panel: '#064e3b', text: '#d1fae5', accent: '#34d399', isLight: false }, { name: 'Coffee', bg: '#271c19', panel: '#43302b', text: '#e7d5c9', accent: '#d78e72', isLight: false }, { name: 'Ocean', bg: '#0c4a6e', panel: '#075985', text: '#e0f2fe', accent: '#38bdf8', isLight: false }, { name: 'Cyber', bg: '#09090b', panel: '#18181b', text: '#e4e4e7', accent: '#e11d48', isLight: false }, { name: 'Royal', bg: '#2e1065', panel: '#4c1d95', text: '#ede9fe', accent: '#a78bfa', isLight: false }, { name: 'Slate', bg: '#334155', panel: '#475569', text: '#f1f5f9', accent: '#94a3b8', isLight: false }, { name: 'Pink', bg: '#fdf2f8', panel: '#ffffff', text: '#831843', accent: '#db2777', isLight: true } ];
+        const themeContainer = document.getElementById('themeContainer');
+        themes.forEach(t => { const b = document.createElement('div'); b.className = 'theme-btn'; b.innerText = t.name; b.style.backgroundColor = t.panel; b.style.color = t.text; b.style.border = `1px solid ${t.accent}`; b.onclick = () => { root.style.setProperty('--bg-body', t.bg); root.style.setProperty('--bg-panel', t.panel); root.style.setProperty('--text-main', t.text); root.style.setProperty('--text-muted', t.isLight ? '#6b7280' : '#9ca3af'); root.style.setProperty('--accent', t.accent); root.style.setProperty('--border', t.isLight ? '#e5e7eb' : '#374151'); showToast(`থিম: ${t.name}`); }; themeContainer.appendChild(b); });
+        function showToast(m) { const t = document.getElementById('toast'); t.innerText = m; t.classList.add('show'); setTimeout(() => t.classList.remove('show'), 3000); }
+    </script>
+</body>
+</html>
+
